@@ -177,6 +177,44 @@ Refine a documentação corrigindo os problemas e incorporando os novos critéri
         
         return doc_gerada, validacao
     
+    def processar_texto_markdown(self, pdf, texto, fonte_normal="Arial", tamanho_normal=12):
+        """Processa texto com markdown básico (negrito) e aplica formatação no PDF"""
+        import re
+        
+        # Padrão para encontrar texto em negrito (**texto**)
+        padrao_negrito = r'\*\*(.*?)\*\*'
+        
+        # Divide o texto em partes normais e negrito
+        partes = re.split(padrao_negrito, texto)
+        
+        # Reinicia a posição para a linha atual
+        x_inicial = pdf.get_x()
+        y_inicial = pdf.get_y()
+        
+        for i, parte in enumerate(partes):
+            if not parte:
+                continue
+                
+            # Se é par, é texto normal; se ímpar, é negrito
+            if i % 2 == 0:
+                # Texto normal
+                pdf.set_font(fonte_normal, "", tamanho_normal)
+            else:
+                # Texto em negrito
+                pdf.set_font(fonte_normal, "B", tamanho_normal)
+            
+            # Adiciona o texto ao PDF
+            if parte.strip():
+                try:
+                    parte_limpa = parte.encode('latin-1', 'ignore').decode('latin-1')
+                    # Verifica se precisa quebrar linha
+                    largura_texto = pdf.get_string_width(parte_limpa)
+                    if pdf.get_x() + largura_texto > pdf.w - pdf.r_margin:
+                        pdf.ln()
+                    pdf.write(6, parte_limpa)
+                except:
+                    pass
+    
     def gerar_pdf_simples(self, titulo, doc_final):
         """Gera um PDF simples apenas com o documento final"""
         console.print("[bold blue]Gerando PDF final...[/bold blue]")
@@ -193,20 +231,41 @@ Refine a documentação corrigindo os problemas e incorporando os novos critéri
         # Extrai o conteúdo do documento
         doc_content = doc_final.get('documentoCompleto', '')
         
-        pdf.set_font("Arial", "", 12)
         for linha in doc_content.split('\n'):
             if linha.strip():
-                linha_limpa = linha.encode('latin-1', 'ignore').decode('latin-1')
                 try:
                     if linha.startswith('#'):
-                        pdf.set_font("Arial", "B", 14)
-                        pdf.cell(0, 8, linha_limpa.replace('#', '').strip(), 0, 1)
-                        pdf.set_font("Arial", "", 12)
+                        # Cabeçalhos
+                        nivel_header = len(linha) - len(linha.lstrip('#'))
+                        texto_header = linha.replace('#', '').strip()
+                        texto_header_limpo = texto_header.encode('latin-1', 'ignore').decode('latin-1')
+                        
+                        tamanho_fonte = max(12, 16 - nivel_header)
+                        pdf.set_font("Arial", "B", tamanho_fonte)
+                        pdf.cell(0, 8, texto_header_limpo, 0, 1)
+                        pdf.ln(2)
                     else:
-                        pdf.multi_cell(0, 6, linha_limpa)
-                    pdf.ln(2)
-                except:
-                    pass
+                        # Texto normal com possível formatação markdown
+                        import re
+                        if '**' in linha:
+                            # Processa linha com negrito
+                            self.processar_texto_markdown(pdf, linha)
+                            pdf.ln(8)  # Nova linha após processamento
+                        else:
+                            # Texto simples sem formatação
+                            pdf.set_font("Arial", "", 12)
+                            linha_limpa = linha.encode('latin-1', 'ignore').decode('latin-1')
+                            pdf.multi_cell(0, 6, linha_limpa)
+                            pdf.ln(2)
+                except Exception as e:
+                    # Em caso de erro, adiciona texto simples
+                    pdf.set_font("Arial", "", 12)
+                    try:
+                        linha_simples = linha.replace('**', '').encode('latin-1', 'ignore').decode('latin-1')
+                        pdf.multi_cell(0, 6, linha_simples)
+                        pdf.ln(2)
+                    except:
+                        pass
         
         pdf.output(nome_arquivo)
         console.print(f"[bold green]PDF gerado: {nome_arquivo}[/bold green]")
