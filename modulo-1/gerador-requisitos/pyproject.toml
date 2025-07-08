@@ -1,0 +1,13 @@
+[project]
+name = "gerador-requisitos"
+version = "0.1.0"
+description = "Gerador e validador de documentação de requisitos usando IA"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "openai>=1.0.0",
+    "markdown>=3.4.0",
+    "fpdf>=1.7.2",
+    "rich>=12.0.0",
+    "python-dotenv>=1.0.0",
+]
